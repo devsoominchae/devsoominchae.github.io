@@ -48,6 +48,11 @@
     .person::before { content: "담당  "; color: var(--gold); font-size: 11px; letter-spacing: .1em; }
     .note { font-size: 12px; color: var(--muted); margin-top: 6px; padding-left: 10px; border-left: 2px solid var(--line); }
 
+    .verse { margin-top: 14px; padding: 16px 18px; background: #f1eadd; border-radius: 4px; }
+    .verse .ref { font-size: 12px; color: var(--gold); margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line); letter-spacing: .05em; }
+    .verse p { display: flex; align-items: baseline; font-size: 14px; line-height: 1.85; word-break: keep-all; margin-top: 6px; }
+    .verse .n { flex: 0 0 1.2em; margin-right: .70em; text-align: right; color: var(--gold); font-family: "Cormorant Garamond", serif; font-size: 15px; font-weight: 500; position: relative; top: -2.5px;}
+
     footer { text-align: center; padding: 8px 24px 72px; font-size: 13px; color: var(--muted); }
     footer .orn { margin: 0 auto 24px; }
   </style>
@@ -93,6 +98,21 @@
       body.append(row("title", p.title));
       if (p.person) body.append(row("person", p.person));
       if (p.note) body.append(row("note", p.note));
+      if (p.verse) {
+        const v = row("verse", "");
+        v.append(row("ref", p.verse.ref));
+        p.verse.verses.forEach((x) => {
+          const line = document.createElement("p");
+          const n = document.createElement("span");
+          n.className = "n";
+          n.textContent = x.n;
+          const t = document.createElement("span");
+          t.textContent = x.text;
+          line.append(n, t);
+          v.append(line);
+        });
+        body.append(v);
+      }
       li.append(row("dot", ""), body);
       list.append(li);
     });
