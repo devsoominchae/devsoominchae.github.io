@@ -51,7 +51,7 @@ const PROGRAM = [
   { title: "혼인 서약 및 성혼 선언", person: "김대성 목사님", note: "", en: { title: "Wedding Vows & Declaration of Marriage", person: "Rev. Daesung Kim" } },
   { title: "축도", person: "김대성 목사님", note: "", en: { title: "Benediction", person: "Rev. Daesung Kim" } },
   { title: "축사", person: "도지은", note: "", en: { title: "Congratulatory Speech", person: "Jieun Do" } },
-  { title: "축가", person: "배지원", note: "", en: { title: "Celebration Song", person: "Jiwon Bae" } },
+  { title: "축가", person: "노래: 배지원, 반주: 홍은택", note: "", en: { title: "Celebration Song", person: "Singer: Jiwon Bae, Piano: Euntaek Hong" } },
   { title: "양가 부모님께 인사", person: "신랑 · 신부", note: "", en: { title: "Bow to the Parents", person: "Groom · Bride" } },
   { title: "행진", person: "신랑 · 신부", note: "", en: { title: "Recessional", person: "Groom · Bride" } },
   { title: "기념 촬영", person: "", note: "가족 → 친구 순서로 진행됩니다", en: { title: "Group Photos", note: "Family first, then friends" } },
