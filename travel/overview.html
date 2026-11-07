@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>전체 일정 정리</title>
+<style>
+:root{--bg:#f4f6f5;--card:#fff;--ink:#1c2523;--sub:#5d6b67;--line:#dde4e1;--accent:#0f766e;--accent-soft:#ddf1ee;--memo:#fff8dc}
+@media (prefers-color-scheme:dark){:root{--bg:#121816;--card:#1b2421;--ink:#e8efec;--sub:#9aaba5;--line:#2b3733;--accent:#4fd1c1;--accent-soft:#183a35;--memo:#2b2812}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Segoe UI",sans-serif}
+header{background:var(--accent);color:#fff;padding:env(safe-area-inset-top) 0 0}
+.bar{max-width:1100px;margin:0 auto;padding:14px 16px;display:flex;align-items:center;gap:10px}
+.bar h1{font-size:18px;margin:0;flex:1}
+.bar a{color:#fff;font-size:13px;background:rgba(255,255,255,.2);padding:6px 10px;border-radius:8px;text-decoration:none}
+main{max-width:1100px;margin:0 auto;padding:16px 16px 40px}
+.src{font-size:12.5px;color:var(--sub);margin:0 0 14px}
+h2{font-size:16px;margin:22px 0 8px}
+.stay{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:14px}
+.stay td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.stay tr:last-child td{border:0}
+.stay td:first-child{white-space:nowrap;color:var(--accent);font-weight:700;width:1%}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px}
+.day{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;border-top:4px solid var(--accent)}
+.day h3{font-size:15.5px;margin:0 0 2px}
+.meta{font-size:12.5px;color:var(--sub);margin-bottom:8px}
+.day ol{list-style:none;margin:0;padding:0}
+.day li{display:flex;gap:8px;padding:3px 0;font-size:14px}
+.day li .t{flex:none;width:92px;color:var(--accent);font-weight:600;font-size:12.5px;padding-top:1px}
+.day li.leg{color:var(--sub);font-size:12.5px}
+.day li.leg .t{font-weight:400;color:var(--sub)}
+.day li small{color:var(--sub)}
+.chk{margin-top:8px;padding:6px 10px;background:var(--memo);border-radius:8px;font-size:12.5px}
+.chk b{display:block;margin-bottom:2px}
+.cost{margin-top:6px;font-size:12.5px;color:var(--sub)}
+.day.hl{border-top-color:#d97706}
+a.mp{color:var(--accent);text-decoration:none;font-size:12.5px;white-space:nowrap;margin-left:4px}
+a.mp:hover{text-decoration:underline}
+.ki{display:inline-block;width:1.4em;text-align:center;flex:none}
+.route{display:inline-block;margin:0 0 8px;font-size:12.5px;color:var(--accent);background:var(--accent-soft);padding:3px 10px;border-radius:999px;text-decoration:none}
+.stay a.mp{margin-left:6px}
+@media print{a.mp,.route{display:none}header a{display:none}.day{break-inside:avoid}}
+</style>
+</head>
+<body>
+<header><div class="bar"><h1>🧳 전체 일정 정리</h1><a href="./">일정 편집 앱</a></div></header>
+<main>
+<p class="src" id="src"></p>
+<h2>🛏 숙소</h2>
+<table class="stay" id="stay"></table>
+<h2>🗓 날짜별 일정</h2>
+<div class="grid" id="grid"></div>
+</main>
+<script>
+const SNAPSHOT=null; /* 일정은 공개 페이지에 넣지 않아요 */
+const KEY='travel-plan-v1';
+const RAW='https://raw.githubusercontent.com/devsoominchae/devsoominchae.github.io/travel-data/travel.json';
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $=s=>document.querySelector(s);
+const TD=new TextDecoder();const b64u8=x=>Uint8Array.from(atob(x),c=>c.charCodeAt(0));
+async function getData(){
+  let best=null,from='';
+  let ck=null;try{const o=JSON.parse(localStorage.getItem('travel-key')||'null');if(o)ck={salt:o.salt,key:await crypto.subtle.importKey('raw',b64u8(o.k),'AES-GCM',false,['decrypt'])}}catch(e){}
+  if(!ck)return null;
+  try{const r=await fetch(RAW+'?t='+Date.now(),{cache:'no-store'});if(r.ok){const w=await r.json();
+    if(w.ct&&w.salt===ck.salt){const d=JSON.parse(TD.decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:b64u8(w.iv)},ck.key,b64u8(w.ct))));if(d&&d.days){best=d;from='GitHub 동기화 데이터'}}}}catch(e){}
+  try{const l=JSON.parse(localStorage.getItem(KEY)||'null');if(l&&l.days&&l.days[0]&&l.days[0].id!=='d0'&&(!best||(l.updatedAt||0)>(best.updatedAt||0))){best=l;from='이 기기의 저장 데이터'}}catch(e){}
+  return best?{d:best,from}:null;
+}
+const KINDS=[['sight','📸 명소','#7c3aed'],['nature','🏞 자연·산책','#15803d'],['activity','🎟 체험·전망','#0369a1'],['restaurant','🍽 식당','#c2410c'],['cafe','☕ 카페','#92400e'],['market','🛍 시장·쇼핑','#be185d'],['hotel','🏨 숙소','#475569'],['airport','✈️ 공항·비행','#1d4ed8'],['station','🚉 역·정류장','#0f766e'],['tour','🚌 투어','#a16207'],['car','🚗 렌터카','#4d7c0f'],['etc','📌 기타','#64748b']];
+const KMAP=Object.fromEntries(KINDS.map(([k,l,c])=>[k,{l,c}]));
+const enc=encodeURIComponent;
+const q=it=>it.ll?it.ll.lat+','+it.ll.lng:it.loc;
+const mapsURL=x=>`https://www.google.com/maps/search/?api=1&query=${enc(x)}`;
+const mapA=x=>x?`<a class="mp" href="${mapsURL(x)}" target="_blank" rel="noopener">🗺 지도</a>`:'';
+function dayRouteURL(d){
+  const pts=[];d.items.forEach(it=>{if(routable(d,it)&&(it.loc||it.ll||chosen(it))){const v=sQ(it);if(pts[pts.length-1]!==v)pts.push(v)}});
+  if(pts.length<2)return'';
+  let mid=pts.slice(1,-1);if(mid.length>9){const step=mid.length/9;mid=Array.from({length:9},(_,i)=>mid[Math.floor(i*step)])}
+  return `https://www.google.com/maps/dir/?api=1&origin=${enc(pts[0])}&destination=${enc(pts[pts.length-1])}`+(mid.length?`&waypoints=${enc(mid.join('|'))}`:'');
+}
+const chosen=it=>it&&it.choices&&it.choices.length?(it.choices[it.csel||0]||it.choices[0]):null;
+const hidden=(d,it)=>{if(!it.when)return false;const c=chosen(d.items.find(x=>x.cid===it.when.c));return !(it.when.k||[]).includes(c&&c.key)};
+const sQ=it=>{const c=chosen(it);return c&&c.loc?c.loc:q(it)};
+const routable=(d,it)=>it.type==='stop'&&!hidden(d,it)&&!(chosen(it)||{}).away;
+const f=n=>(Math.round(n*100)/100).toString();
+function render({d,from}){
+  const t=d.updatedAt?new Date(d.updatedAt).toLocaleString('ko-KR'):'-';
+  $('#src').textContent=`데이터: ${from} · 마지막 수정 ${t} · 모든 비용은 2인 합계 (통화는 각 날짜 기준)`;
+  const stays=[];let last='';
+  d.days.forEach(x=>{const s=(x.info||[]).find(i=>/숙소/.test(i.k));if(!s)return;const n=s.v.split('·')[0].trim();
+    if(n===last&&stays.length){stays[stays.length-1].to=x.tab}else{const nm=n.split('(')[0].trim(),w=nm.split(' ')[0];const hs=x.items.find(it=>it.type==='stop'&&it.kind==='hotel'&&it.loc&&it.loc.includes(w));stays.push({from:x.tab,to:x.tab,name:s.v,mq:hs?q(hs):nm});last=n}});
+  $('#stay').innerHTML=stays.map(s=>`<tr><td>${esc(s.from===s.to?s.from:s.from+' ~ '+s.to)}</td><td>${esc(s.name)}${mapA(s.mq)}</td></tr>`).join('')||'<tr><td>-</td><td>숙소 정보 없음</td></tr>';
+  $('#grid').innerHTML=d.days.map(x=>{
+    let lo=0,hi=0;
+    const items=x.items.map(it=>{if(hidden(x,it))return'';
+      if(it.type==='leg'){const o=it.options[it.sel]||it.options[0];if(!o)return'';lo+=+o.min||0;hi+=+o.max||0;
+        return`<li class="leg"><span class="t">↳ ${esc(it.depart||'')}</span><span class="ki"></span><span>${esc(o.name)} <small>${esc(o.dur||'')}</small></span></li>`}
+      const k=KMAP[it.kind]||KMAP.etc;return`<li><span class="t">${esc(it.time)}</span><span class="ki" title="${esc(k.l)}">${k.l.split(' ')[0]}</span><span>${esc(it.name)}${chosen(it)?' · <b>'+esc(chosen(it).name)+'</b>':''}${mapA(sQ(it))}${chosen(it)&&it.choices.length>1?`<br><small>다른 후보: ${it.choices.filter(c=>c!==chosen(it)).map(c=>esc(c.name)+mapA(c.loc)).join(', ')}</small>`:''}${it.stay?` <small>(${esc(it.stay)})</small>`:''}${it.memo?`<br><small>${esc(it.memo)}</small>`:''}</span></li>`}).join('');
+    const open=(x.check||[]).filter(c=>!c.done);
+    const cur=x.cur||'A$';
+    return`<section class="day${/그레이트 오션/.test(x.title)?' hl':''}"><h3>${esc(x.title)}</h3>
+      <div class="meta">${esc((x.info||[]).find(i=>/숙소/.test(i.k))?.v.split('·')[0]||'')}</div>
+      ${dayRouteURL(x)?`<a class="route" href="${dayRouteURL(x)}" target="_blank" rel="noopener">🗺 이날 동선 구글 지도</a>`:''}
+      <ol>${items}</ol>
+      ${hi?`<div class="cost">이동비 예상 ${cur}${f(lo)}${hi!==lo?' ~ '+cur+f(hi):''}</div>`:''}
+      ${open.length?`<div class="chk"><b>확인할 것</b>${open.map(c=>'· '+esc(c.text)).join('<br>')}</div>`:''}</section>`}).join('');
+}
+getData().then(x=>{if(x)render(x);else document.body.innerHTML='<div style="max-width:420px;margin:80px auto;text-align:center;font-family:sans-serif;padding:20px"><div style="font-size:44px">🔒</div><p><b>잠겨 있어요</b></p><p style="color:#666">여행 앱에서 비밀번호를 먼저 넣어 주세요.</p><p><a href="./">여행 앱 열기</a></p></div>'});
+</script>
+</body>
+</html>
