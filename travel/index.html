@@ -59,6 +59,10 @@ h2{font-size:20px;margin:4px 0 12px}
 .opt .nt{font-size:12.5px;margin-top:3px;color:var(--sub)}
 .wxd{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:-2px 0 10px}.wxc{font-size:12.5px;background:var(--card,#fff);border:1px solid var(--line);border-radius:999px;padding:2px 8px;white-space:nowrap}.wxc b{font-weight:600}.wxd .chipbtn{font-size:12px}
 .wxs{display:inline-block;font-size:12px;color:var(--sub);margin-left:8px;white-space:nowrap}
+.nowb{display:block;width:100%;text-align:left;border:0;border-radius:12px;padding:10px 12px;margin:0 0 10px;background:#dcfce7;color:#14532d;font:inherit;font-size:14.5px;line-height:1.45;cursor:pointer}
+.nowb .sub{color:#166534;opacity:.85}.nowb.other{background:var(--accent-soft);color:var(--accent);font-weight:700}
+.row.nowc .card{box-shadow:0 0 0 2.5px #22c55e;}.row.nowc .card::before{content:'지금';display:inline-block;background:#22c55e;color:#fff;font-size:11px;font-weight:700;border-radius:6px;padding:0 6px;margin-bottom:4px}
+.row.past{opacity:.55}.tdot{color:#22c55e;font-size:10px;vertical-align:1px}
 .ttot{background:var(--accent-soft);color:var(--text,inherit);border-radius:10px;padding:8px 12px;margin:-4px 0 10px;font-size:14.5px}.ttot b{color:var(--accent)}
 .optw{position:relative}
 .chs{margin-top:10px}.chh{font-size:12px;color:var(--sub);margin-bottom:5px}.chn{font-size:13px;color:var(--sub);margin-top:2px}
@@ -377,7 +381,7 @@ function renderPack(){
 /* ================= 렌더링 ================= */
 function renderTabs(){
   const tb=$('#tabs'),keep=tb.scrollLeft;
-  tb.innerHTML=`<button class="tab ${view==='sum'?'on':''}" data-view="sum">📋 전체</button>`+S.days.map((d,i)=>`<button class="tab ${view==='day'&&i===cur?'on':''}" data-tab="${i}">${esc(d.tab)}</button>`).join('')+
+  tb.innerHTML=`<button class="tab ${view==='sum'?'on':''}" data-view="sum">📋 전체</button>`+S.days.map((d,i)=>`<button class="tab ${view==='day'&&i===cur?'on':''}" data-tab="${i}">${sameDay(dayDate(d),new Date())?'<span class="tdot">●</span> ':''}${esc(d.tab)}</button>`).join('')+
     `<button class="tab ${view==='pack'?'on':''}" data-view="pack">🧳 준비물</button><button class="tab" data-addday>＋ 날짜</button>`;
 
   tb.scrollLeft=keep;
@@ -422,6 +426,43 @@ function appendStop(d,stop){
 /* ================= 전체 요약 (시간표 + 이동 동선) ================= */
 const tmins=t=>[...String(t||'').replace(/\d+\/\d+\s+/,'').matchAll(/(\d{1,2}):(\d{2})/g)].map(m=>+m[1]*60+ +m[2]);
 const WDK='일월화수목금토';
+/* ---- 오늘 · 지금 일정 표시 ---- */
+const sameDay=(a,b)=>a&&b&&a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
+const todayIdx=()=>S.days.findIndex(d=>sameDay(dayDate(d),new Date()));
+function stopRange(d,it){
+  let t=String(it.time||'');const pm=/^(\d+)\/(\d+)\s+/.exec(t);
+  if(pm){const dd=dayDate(d);if(dd&&(+pm[1]!==dd.getMonth()+1||+pm[2]!==dd.getDate()))return null;t=t.slice(pm[0].length)}
+  const ts=[...t.matchAll(/(\d{1,2}):(\d{2})/g)].map(m=>+m[1]*60+ +m[2]);if(!ts.length)return null;
+  let s=ts[0],e=ts.length>1?ts[1]:null;if(e!==null&&e<s)e+=1440;
+  if(e===null){const m=durMin(it.stay);e=s+(m||0)}
+  return{s,e}}
+function nowState(d){
+  const now=new Date(),N=now.getHours()*60+now.getMinutes();
+  const st=[];d.items.forEach((it,i)=>{if(it.type!=='stop'||hidden(d,it))return;const r=stopRange(d,it);if(r)st.push({i,it,...r})});
+  if(!st.length)return null;
+  for(let k=0;k<st.length;k++){const a=st[k];
+    if(N>=a.s&&N<Math.max(a.e,a.s+1))return{N,cur:a.i,kind:'stop',a,next:st[k+1]};
+    const b=st[k+1];if(b&&N>=a.e&&N<b.s){const leg=d.items.slice(a.i+1,b.i).findIndex(x=>x.type==='leg'&&!hidden(d,x));return{N,cur:leg>=0?a.i+1+leg:a.i,kind:'move',a,next:b}}}
+  if(N<st[0].s)return{N,cur:null,kind:'before',next:st[0]};
+  return{N,cur:null,kind:'done'}}
+const hhmm=N=>String(Math.floor(N/60)%24).padStart(2,'0')+':'+String(N%60).padStart(2,'0');
+function applyNow(){
+  const bar=document.getElementById('nowbar');if(!bar||view!=='day')return;
+  const d=S.days[cur];document.querySelectorAll('.row.nowc,.row.past').forEach(r=>r.classList.remove('nowc','past'));
+  if(!sameDay(dayDate(d),new Date())){const t=todayIdx();bar.innerHTML=t>=0?`<button class="nowb other" data-tab="${t}">📍 오늘 일정 보기 (${esc(S.days[t].tab)})</button>`:'';return}
+  const x=nowState(d);if(!x){bar.innerHTML='';return}
+  const nm=it=>esc(sName(it));let msg='';
+  if(x.kind==='stop')msg=`<b>지금</b> ${nm(x.a.it)} <span class="sub">${hhmm(x.a.s)}~${hhmm(x.a.e)}</span>`+(x.next?`<br><span class="sub">다음 ${hhmm(x.next.s)} · ${nm(x.next.it)}</span>`:'');
+  else if(x.kind==='move'){const l=d.items[x.cur],o=l&&l.type==='leg'?selOpt(l):null;msg=`<b>이동 중</b> → ${nm(x.next.it)} <span class="sub">${hhmm(x.next.s)} 도착 예정</span>`+(o?`<br><span class="sub">${esc(o.name)}${o.dur?' · '+esc(o.dur):''}</span>`:'')}
+  else if(x.kind==='before')msg=`<b>오늘 첫 일정</b> ${hhmm(x.next.s)} · ${nm(x.next.it)}`;
+  else msg=`<b>오늘 일정 끝</b> · 푹 쉬어요 🌙`;
+  bar.innerHTML=`<button class="nowb" ${x.cur!==null?`data-gonow="${x.cur}"`:''}>🟢 <span class="sub">${hhmm(x.N)}</span> ${msg}</button>`;
+  document.querySelectorAll('#app .row[data-ri]').forEach(r=>{const i=+r.dataset.ri;
+    if(x.cur!==null&&i===x.cur)r.classList.add('nowc');
+    else if(x.kind==='done'||(x.cur!==null&&i<x.cur))r.classList.add('past')});
+}
+function gotoToday(){const t=todayIdx();if(t>=0){cur=t;view='day'}return t>=0}
+setInterval(()=>{if(!document.hidden&&!locked&&!editing)applyNow()},60000);
 function dayDate(d){const m=/(\d+)\/(\d+)/.exec(d.tab);return m?new Date(2026,+m[1]-1,+m[2]):null}
 /* 시간 칸(09:30~10:00)과 머무는 시간(30분)을 서로 연동. 한쪽을 고치면 다른 쪽이 따라 바뀜.
    '~'로 끝나는 범위나 시작 시각만 있는 경우에만 (비행 '→'·'약'이 붙은 대략 시간·범위 '30~45분'은 건드리지 않음) */
@@ -648,7 +689,7 @@ function render(){
   const d=S.days[cur], n=d.items.length;
   let h=`<h2>${editing?`<input type="text" data-p="title" value="${esc(d.title)}">
     <div class="g2"><input type="text" data-p="tab" value="${esc(d.tab)}" placeholder="탭 이름"><button class="btn del" data-delday>이 날짜 삭제</button></div>`:esc(d.title)}</h2>`;
-  if(!editing)h+=travelTotal(d)+wxDayBar(d);
+  if(!editing)h+=`<div id="nowbar"></div>`+travelTotal(d)+wxDayBar(d);
   h+=planBar(d);
   h+=`<div class="info">`+d.info.map((r,i)=>editing
     ?`<div><input type="text" style="width:90px;flex:none" data-p="info.${i}.k" value="${esc(r.k)}"><input type="text" data-p="info.${i}.v" value="${esc(r.v)}"><button class="btn del" data-delinfo="${i}">✕</button></div>`
@@ -676,7 +717,7 @@ function render(){
       const mapBtn=hasLoc?`<a class="btn" target="_blank" rel="noopener" href="${esc(mapsURL(it,d,i))}">🗺 구글 지도${ch?' ('+esc(ch.name)+')':''}</a>`:'';
       const chView=ch?`<div class="chs"><div class="chh">선택지 · 누르면 바뀌어요</div>`+it.choices.map((c,j)=>`<div class="optw"><button class="opt ${c===ch?'sel':''} ${c.loc?'hasmap':''}" data-csel="${i},${j}"><div class="h"><span class="radio"></span><span class="nm">${esc(c.name)}</span></div>${c.note?`<div class="nt">${esc(c.note)}</div>`:''}</button>${c.loc?`<a class="optmap" target="_blank" rel="noopener" href="${esc(mapsQ(c.loc))}">🗺 지도</a>`:''}</div>`).join('')+`</div>`:'';
       const chEdit=`<div class="chs"><div class="chh">선택지 (식당 후보 등)</div>`+(it.choices||[]).map((c,j)=>`<div class="opt" style="cursor:default"><div class="g2"><input type="text" data-p="${p}.choices.${j}.name" value="${esc(c.name)}" placeholder="후보 이름"><input type="text" data-p="${p}.choices.${j}.loc" value="${esc(c.loc||'')}" placeholder="지도 검색어"></div><input type="text" data-p="${p}.choices.${j}.note" value="${esc(c.note||'')}" placeholder="메모 (평점·영업시간 등)"><div class="tools"><button class="btn" data-csel="${i},${j}">${c===ch?'★ 선택됨':'☆ 이걸로 선택'}</button><button class="btn del" data-delch="${i},${j}">이 후보 삭제</button></div></div>`).join('')+`<div class="tools"><button class="btn" data-addch="${i}">＋ 후보 추가</button></div></div>`;
-      h+=`<div class="row ${ed?'edit':''}"><div class="card stop" style="border-left-color:${(KMAP[it.kind||'etc']||KMAP.etc).c}">`+(ed
+      h+=`<div class="row ${ed?'edit':''}" data-ri="${i}"><div class="card stop" style="border-left-color:${(KMAP[it.kind||'etc']||KMAP.etc).c}">`+(ed
         ?`<div class="g2"><input type="text" data-p="${p}.time" value="${esc(it.time)}" placeholder="시간"><input type="text" data-p="${p}.stay" value="${esc(it.stay)}" placeholder="머무는 시간"></div>
           <input type="text" data-p="${p}.name" value="${esc(it.name)}" placeholder="장소 · 일정">
           <select data-p="${p}.kind">${KINDS.map(([k,l])=>`<option value="${k}" ${(it.kind||'etc')===k?'selected':''}>${l}</option>`).join('')}</select>
@@ -687,7 +728,7 @@ function render(){
           <div class="cardtools"><button class="btn" data-edit="${i}">✏️ 수정</button>${mapBtn}<button class="btn" data-addafter="${i}">＋ 다음 일정</button></div>`)
         +`</div>${memo(p,it.memo)}</div>`;
     }else{
-      h+=`<div class="row ${ed?'edit':''}"><div class="card leg"><div class="lt">`+(ed
+      h+=`<div class="row ${ed?'edit':''}" data-ri="${i}"><div class="card leg"><div class="lt">`+(ed
         ?`<b>${esc(legTitle)}</b><input type="text" style="width:110px" data-p="${p}.depart" value="${esc(it.depart)}" placeholder="출발 시간"><button class="btn ${it.ask?'pri':''}" data-ask="${i}">${it.ask?'🤖 계산 요청됨 (취소)':'🤖 클로드가 계산'}</button>`
         :`🚶 ${esc(legTitle)} ${whenTag(it)}<small>(${esc(it.depart)} 출발)</small><button class="btn" data-edit="${i}">✏️ 이동 수정</button><button class="btn ${it.ask?'pri':''}" data-ask="${i}">${it.ask?'🤖 계산 요청됨 (취소)':'🤖 클로드가 계산'}</button>`)+`</div>`;
       if(ed)h+=`<div class="g2"><input type="text" data-p="${p}.from" value="${esc(it.from||'')}" placeholder="출발 지도 검색어 (비우면 앞 장소)"><input type="text" data-p="${p}.to" value="${esc(it.to||'')}" placeholder="도착 지도 검색어 (비우면 뒤 장소)"></div>`;
@@ -727,7 +768,7 @@ function render(){
   if(d.src)h+=`<p class="src">${esc(d.src)}</p>`;
   $('#app').innerHTML=h;
   updTotal();
-  if(!editing)attachMaps();
+  if(!editing){attachMaps();applyNow()}
 }
 
 function setPath(obj,path,val){
@@ -762,6 +803,7 @@ document.addEventListener('click',e=>{
   }
   else if(D.sel){const[i,j]=pair(D.sel);d.items[i].sel=j;cascade(d,i)}
   else if(D.wxr!==undefined){loadWx(true);return}
+  else if(D.gonow!==undefined){const r=document.querySelector(`#app .row[data-ri="${D.gonow}"]`);if(r)r.scrollIntoView({behavior:'smooth',block:'center'});return}
   else if(D.csel){const[i,j]=pair(D.csel);d.items[i].csel=j}
   else if(D.addch){const it=d.items[+D.addch];(it.choices=it.choices||[]).push({key:'c'+Date.now(),name:'새 후보',loc:'',note:''});if(it.csel===undefined)it.csel=0;if(!editing)editIdx=+D.addch}
   else if(D.delch){const[i,j]=pair(D.delch);const it=d.items[i];it.choices.splice(j,1);it.csel=Math.min(it.csel||0,Math.max(0,it.choices.length-1));if(!it.choices.length)delete it.choices}
@@ -879,7 +921,7 @@ async function unlock(){
     CK=ck;await saveCK();locked=false;$('#lock').hidden=true;$('#lockpw').value='';sha=x.sha;
     const local=load();
     if(local.days&&local.days[0]&&local.days[0].id!=='d0'&&(local.updatedAt||0)>(data.updatedAt||0)){S=migrate(local);dirty=true;schedulePush()}else adopt(data);
-    cur=Math.min(cur,S.days.length-1);render();loadWx();
+    cur=Math.min(cur,S.days.length-1);gotoToday();render();loadWx();
   }catch(e){$('#lockMsg').textContent='일정을 못 받아왔어요. 인터넷 연결을 확인해 주세요.'}
   finally{$('#lockBtn').disabled=false}
 }
@@ -947,7 +989,7 @@ addEventListener('online',pull);
 setInterval(()=>{if(!document.hidden)pull()},30000);
 (async()=>{
   CK=await loadCK();
-  if(CK&&crypto.subtle){locked=false;render();pull();setTimeout(()=>loadWx(),300)}
+  if(CK&&crypto.subtle){locked=false;gotoToday();render();pull();setTimeout(()=>loadWx(),300)}
   else lockNow();
 })();
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadWx()});
