@@ -436,15 +436,21 @@ function stopRange(d,it){
   let s=ts[0],e=ts.length>1?ts[1]:null;if(e!==null&&e<s)e+=1440;
   if(e===null){const m=durMin(it.stay);e=s+(m||0)}
   return{s,e}}
+/* 기기 시계 시간대가 안 바뀌어도 각 장소의 현지 시각으로 비교 (날씨 지역 경도로 시간대 판단) */
+const tzOfLon=lon=>lon==null?null:(lon>=160?'Pacific/Auckland':'Australia/Sydney');
+function nowMinTZ(tz){const now=new Date();if(!tz)return now.getHours()*60+now.getMinutes();
+  try{const p=new Intl.DateTimeFormat('en-GB',{timeZone:tz,hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(now);
+    const g=t=>+p.find(x=>x.type===t).value;return (g('hour')%24)*60+g('minute')}catch(e){return now.getHours()*60+now.getMinutes()}}
 function nowState(d){
-  const now=new Date(),N=now.getHours()*60+now.getMinutes();
-  const st=[];d.items.forEach((it,i)=>{if(it.type!=='stop'||hidden(d,it))return;const r=stopRange(d,it);if(r)st.push({i,it,...r})});
+  const st=[];let ptz=null;d.items.forEach((it,i)=>{if(it.type!=='stop'||hidden(d,it))return;
+    const w=(d.wx||[])[it.wr];const tz=(w&&it.wr>=0)?tzOfLon(w.lon):ptz;if(tz)ptz=tz;
+    const r=stopRange(d,it);if(r)st.push({i,it,...r,N:nowMinTZ(tz)})});
   if(!st.length)return null;
-  for(let k=0;k<st.length;k++){const a=st[k];
+  for(let k=0;k<st.length;k++){const a=st[k],N=a.N;
     if(N>=a.s&&N<Math.max(a.e,a.s+1))return{N,cur:a.i,kind:'stop',a,next:st[k+1]};
-    const b=st[k+1];if(b&&N>=a.e&&N<b.s){const leg=d.items.slice(a.i+1,b.i).findIndex(x=>x.type==='leg'&&!hidden(d,x));return{N,cur:leg>=0?a.i+1+leg:a.i,kind:'move',a,next:b}}}
-  if(N<st[0].s)return{N,cur:null,kind:'before',next:st[0]};
-  return{N,cur:null,kind:'done'}}
+    const b=st[k+1];if(b&&N>=a.e&&b.N<b.s){const leg=d.items.slice(a.i+1,b.i).findIndex(x=>x.type==='leg'&&!hidden(d,x));return{N:b.N,cur:leg>=0?a.i+1+leg:a.i,kind:'move',a,next:b}}}
+  if(st[0].N<st[0].s)return{N:st[0].N,cur:null,kind:'before',next:st[0]};
+  return{N:st[st.length-1].N,cur:null,kind:'done'}}
 const hhmm=N=>String(Math.floor(N/60)%24).padStart(2,'0')+':'+String(N%60).padStart(2,'0');
 function applyNow(){
   const bar=document.getElementById('nowbar');if(!bar||view!=='day')return;
