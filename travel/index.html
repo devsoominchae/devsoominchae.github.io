@@ -256,8 +256,8 @@ const naverQ=q=>`https://m.search.naver.com/search.naver?ssc=tab.m_blog.all&sm=m
 const blogQs=it=>{const ch=chosen(it);const en=((ch&&ch.name)||it.eq||(it.loc||'').split(',')[0]||it.name||'').replace(/\s*\(.*?\)\s*/g,' ').trim();
   const ko=((ch&&ch.kq)||it.kq||'').trim();return {en,ko}};
 const blogBtns=it=>{const {en,ko}=blogQs(it);if(!en&&!ko)return'';
-  /* 네이버 OR 검색: "영어 이름" | "한글 이름" */
-  const q=en&&ko&&ko!==en?`"${en}" | "${ko}"`:(ko||en);
+  /* 네이버 OR 검색: 영어 이름 | 한글 이름 */
+  const q=en&&ko&&ko!==en?`${en} | ${ko}`:(ko||en);
   return `<a class="btn" target="_blank" rel="noopener" href="${esc(naverQ(q))}">📝 네이버 블로그</a>`};
 const mapsURL=(it,d,k)=>mapsQ(d?qStr(sLoc(d,k)):(it.ll?it.ll.lat+','+it.ll.lng:it.loc));
 function kindChip(it){const k=KMAP[it.kind||'etc']||KMAP.etc;return `<span class="kind" style="color:${k.c};border-color:${k.c}55;background:${k.c}14">${k.l}</span>`}
