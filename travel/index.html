@@ -252,7 +252,7 @@ function sLoc(d,k){const it=d.items[k],c=chosen(it);
 const qStr=x=>x?(x.ll?x.ll.lat+','+x.ll.lng:x.q):'';
 const mapsQ=q=>`https://www.google.com/maps/search/?api=1&query=${enc(q)}`;
 /* 네이버 블로그 검색: 영어(장소명) + 한글(kq) 두 가지 */
-const naverQ=q=>`https://search.naver.com/search.naver?where=blog&query=${enc(q)}`;
+const naverQ=q=>`https://m.search.naver.com/search.naver?ssc=tab.m_blog.all&sm=mtb_jum&query=${enc(q)}`;
 const blogQs=it=>{const ch=chosen(it);const en=((ch&&ch.name)||it.eq||(it.loc||'').split(',')[0]||it.name||'').replace(/\s*\(.*?\)\s*/g,' ').trim();
   const ko=((ch&&ch.kq)||it.kq||'').trim();return {en,ko}};
 const blogBtns=it=>{const {en,ko}=blogQs(it);if(!en&&!ko)return'';
