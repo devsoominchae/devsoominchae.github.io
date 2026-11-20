@@ -415,7 +415,7 @@ function tripPlaces(){const m=new Map();
 function renderShop(){
   const items=S.shop,total=items.length,done=items.filter(x=>x.done).length;
   let h=`<h2>🎁 쇼핑리스트</h2><div class="card"><div class="pkbar"><div style="width:${total?Math.round(done/total*100):0}%"></div></div>
-    <div class="sub" style="margin-top:6px">${done} / ${total} 삼</div>
+    <div class="sub" style="margin-top:6px">${done} / ${total}</div>
     <div class="chips" style="margin:8px 0 0">`;
   tripPlaces().forEach((cities,c)=>{
     const q=[`${c} 쇼핑리스트`,...[...cities].map(n=>`${n} 쇼핑리스트`)].join(' | ');
