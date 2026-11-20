@@ -323,8 +323,20 @@ function ends(d,i){
   const to=o&&o.place?{q:o.place}:leg.to?{q:leg.to}:(b!==null?sLoc(d,b):null);
   return from&&to?{from,to}:null;
 }
-const dirLink=(e,m)=>`https://www.google.com/maps/dir/?api=1&origin=${enc(ptStr(e.from))}&destination=${enc(ptStr(e.to))}&travelmode=${m}`;
-const embedURL=(e,m)=>`https://maps.google.com/maps?saddr=${enc(ptStr(e.from))}&daddr=${enc(ptStr(e.to))}&dirflg=${DIRFLG[m]}&hl=ko&output=embed`;
+/* 이동 출발 시각: 그 날짜(탭의 M/D) + 이동의 출발 시간 → 대중교통 길찾기를 '지금'이 아니라 실제 출발 시각 기준으로 */
+function legWhen(d,leg){
+  const t=/(\d{1,2}):(\d{2})/.exec((leg&&leg.depart)||''),md=/(\d{1,2})\/(\d{1,2})/.exec(d.tab||d.title||'');
+  if(!t||!md)return null;
+  return {y:d.year||new Date().getFullYear(),mo:+md[1],da:+md[2],h:+t[1],mi:+t[2]};
+}
+const p2=n=>String(n).padStart(2,'0');
+/* 구글 지도 data 파라미터: !6e0 = 출발 시각 기준, !8j = 현지 시각(UTC로 적은 초), !3e3 = 대중교통 */
+const dirLink=(e,m,w)=>{
+  if(m==='transit'&&w){const ts=Date.UTC(w.y,w.mo-1,w.da,w.h,w.mi)/1000;
+    return `https://www.google.com/maps/dir/${enc(ptStr(e.from))}/${enc(ptStr(e.to))}/data=!4m6!4m5!2m3!6e0!7e2!8j${ts}!3e3?hl=ko`}
+  return `https://www.google.com/maps/dir/?api=1&origin=${enc(ptStr(e.from))}&destination=${enc(ptStr(e.to))}&travelmode=${m}`};
+const embedURL=(e,m,w)=>`https://maps.google.com/maps?saddr=${enc(ptStr(e.from))}&daddr=${enc(ptStr(e.to))}&dirflg=${DIRFLG[m]}`+
+  (m==='transit'&&w?`&ttype=dep&date=${p2(w.mo)}/${p2(w.da)}/${String(w.y).slice(2)}&time=${p2(w.h)}:${p2(w.mi)}`:'')+`&hl=ko&output=embed`;
 
 const mapCache=new Map(), routeCache=new Map();
 function makeEntry(){
@@ -338,18 +350,18 @@ function makeEntry(){
 function renderCap(ent){
   ent.cap.innerHTML=(ent.info?esc(ent.info)+' · ':'')+`<a href="${esc(ent.link)}" target="_blank" rel="noopener">구글 지도 앱에서 열기 ↗</a>`;
 }
-function showEntry(ent,e,mode){
-  ent.e=e;ent.mode=mode;ent.link=dirLink(e,mode);renderCap(ent);
+function showEntry(ent,e,mode,w){
+  ent.e=e;ent.mode=mode;ent.w=w||null;ent.link=dirLink(e,mode,ent.w);renderCap(ent);
   if(ent.vis)refreshEntry(ent);
 }
 function fallback(ent,msg){
-  const src=embedURL(ent.e,ent.mode);
+  const src=embedURL(ent.e,ent.mode,ent.w);
   ent.failSig=ent.sig;ent.map=null;ent.lines=[];ent.pins=[];ent.places=[];
   if(!ent.box.querySelector('iframe[src="'+src+'"]'))ent.box.innerHTML=`<iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${esc(src)}"></iframe>`;
   ent.info=msg?'⚠️ '+msg:'';renderCap(ent);
 }
 function refreshEntry(ent){
-  const sig=`${ptStr(ent.e.from)}>${ptStr(ent.e.to)}>${ent.mode}`;
+  const sig=`${ptStr(ent.e.from)}>${ptStr(ent.e.to)}>${ent.mode}>${ent.w?JSON.stringify(ent.w):''}`;
   if(ent.sig===sig&&ent.box.querySelector('iframe'))return;
   ent.sig=sig;fallback(ent,'');
 }
@@ -360,7 +372,7 @@ function attachMaps(){
     let ent=mapCache.get(key);
     if(!ent){ent=makeEntry();mapCache.set(key,ent)}
     slot.appendChild(ent.el);
-    const e=ends(d,i);if(e)showEntry(ent,e,curMode(d.items[i]));
+    const e=ends(d,i);if(e)showEntry(ent,e,curMode(d.items[i]),legWhen(d,d.items[i]));
   });
 }
 
@@ -656,7 +668,7 @@ function renderSum(){
       for(let j=k+1;j<d.items.length;j++)if(routable(d,d.items[j])){nx=d.items[j];break}
       const e=ends(d,k),fr=e?ptStr(e.from):'',to=e?ptStr(e.to):'';
       const mode={driving:'driving',walking:'walking',transit:'transit'}[o.mode]||'transit';
-      const url=fr&&to?`https://www.google.com/maps/dir/?api=1&origin=${enc(fr)}&destination=${enc(to)}&travelmode=${mode}`:'';
+      const url=e?dirLink(e,mode,legWhen(d,it)):'';
       rows.push(`<tr><td>${esc(it.depart||'')}</td><td>${esc(pv?sName(pv):'')} <span class="ar">→</span> ${esc(nx?sName(nx):'')}</td><td><b>${esc(o.name)}</b><br><small>${esc(o.route||'')}</small></td><td>${esc(o.dur||'')}</td><td>${esc(legCost(d,o))}</td><td>${url?`<a target="_blank" rel="noopener" href="${url}">🗺 경로</a>`:''}</td></tr>`);
     });
     if(!rows.length)return;
