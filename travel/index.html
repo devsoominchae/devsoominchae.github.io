@@ -333,7 +333,7 @@ const p2=n=>String(n).padStart(2,'0');
 /* 구글 지도 data 파라미터: !6e0 = 출발 시각 기준, !8j = 현지 시각(UTC로 적은 초), !3e3 = 대중교통 */
 const dirLink=(e,m,w)=>{
   if(m==='transit'&&w){const ts=Date.UTC(w.y,w.mo-1,w.da,w.h,w.mi)/1000;
-    return `https://www.google.com/maps/dir/${enc(ptStr(e.from))}/${enc(ptStr(e.to))}/data=!4m6!4m5!2m3!6e0!7e2!8j${ts}!3e3?hl=ko`}
+    return `https://www.google.com/maps/dir/${enc(ptStr(e.from))}/${enc(ptStr(e.to))}/data=!4m6!4m5!2m3!6e0!7e2!8j${ts}!3e3`}
   return `https://www.google.com/maps/dir/?api=1&origin=${enc(ptStr(e.from))}&destination=${enc(ptStr(e.to))}&travelmode=${m}`};
 const embedURL=(e,m,w)=>`https://maps.google.com/maps?saddr=${enc(ptStr(e.from))}&daddr=${enc(ptStr(e.to))}&dirflg=${DIRFLG[m]}`+
   (m==='transit'&&w?`&ttype=dep&date=${p2(w.mo)}/${p2(w.da)}/${String(w.y).slice(2)}&time=${p2(w.h)}:${p2(w.mi)}`:'')+`&hl=ko&output=embed`;
