@@ -266,11 +266,6 @@ const blogBtns=it=>{let {en,ko}=blogQs(it);
   /* 네이버 OR 검색: 영어 이름 | 한글 이름 */
   const q=en&&ko&&ko!==en?`${en} | ${ko}`:(ko||en);
   return `<a class="btn" target="_blank" rel="noopener" href="${esc(naverQ(q))}">📝 네이버 블로그</a>`};
-/* 기념품: 시장·쇼핑 칸에 '나라 쇼핑리스트 | 도시 쇼핑리스트' 블로그 검색 */
-const souvBtn=(d,it)=>{const w=(d.wx||[])[it.wr>=0?it.wr:0]||(d.wx||[])[0];if(!w)return'';
-  const c=w.lon>=160?'뉴질랜드':'호주',city=(w.n||'').trim();
-  const q=[`${c} 쇼핑리스트`,city&&city!==c?`${city} 쇼핑리스트`:''].filter(Boolean).join(' | ');
-  return `<a class="btn" target="_blank" rel="noopener" href="${esc(naverQ(q))}">🎁 쇼핑리스트</a>`};
 const mapsURL=(it,d,k)=>mapsQ(d?qStr(sLoc(d,k)):(it.ll?it.ll.lat+','+it.ll.lng:it.loc));
 function kindChip(it){const k=KMAP[it.kind||'etc']||KMAP.etc;return `<span class="kind" style="color:${k.c};border-color:${k.c}55;background:${k.c}14">${k.l}</span>`}
 function dayRouteURL(d){
@@ -281,6 +276,7 @@ function dayRouteURL(d){
 }
 function migrate(o){
   if(!o.pack)o.pack=DEFAULT_PACK.map(x=>({...x}));
+  if(!o.shop)o.shop=[];
   o.days.forEach(d=>d.items.forEach(it=>{
     if(it.type==='stop'&&it.loc===undefined){const k=Object.keys(LOCS).find(k=>it.name.includes(k));it.loc=k?LOCS[k]:''}
     if(it.type==='stop'&&!it.kind)it.kind=guessKind(it);
@@ -316,6 +312,7 @@ function totals(d){
 function updTotal(){
   if(view==='sum'){let a=0,b=0;S.days.forEach(d=>{if((d.cur||'A$')==='A$'){const t=totals(d);a+=t[0];b+=t[1]}});$('#total').textContent='A$'+fmtN(a)+(b!==a?' ~ '+fmtN(b):'');$('#fl').textContent='전체 선택 옵션 교통비 합계 (A$ 구간, 2인)';return}
   if(view==='pack'){$('#total').textContent=S.pack.filter(x=>x.done).length+' / '+S.pack.length;$('#fl').textContent='준비물 챙김';return}
+  if(view==='shop'){$('#total').textContent=S.shop.filter(x=>x.done).length+' / '+S.shop.length;$('#fl').textContent='쇼핑리스트 산 것';return}
   const [a,b]=totals(S.days[cur]);
   $('#total').textContent=a===b?fmt(a):fmt(a)+' ~ '+fmtN(b);
   $('#fl').textContent=S.days[cur].tab+' 선택 옵션 교통비 (2인'+(curSym()!=='A$'?', '+curSym():'')+')';
@@ -410,11 +407,36 @@ function renderPack(){
   return h;
 }
 
+/* ================= 쇼핑리스트 (여행 전체) ================= */
+/* 여행에 나오는 나라·도시 (날씨 지역 기준): 나라 쇼핑리스트 | 도시 쇼핑리스트 블로그 검색 */
+function tripPlaces(){const m=new Map();
+  S.days.forEach(d=>(d.wx||[]).forEach(w=>{const c=w.lon>=160?'뉴질랜드':'호주';if(!m.has(c))m.set(c,new Set());const n=(w.n||'').trim();if(n&&n!==c)m.get(c).add(n)}));
+  return m}
+function renderShop(){
+  const items=S.shop,total=items.length,done=items.filter(x=>x.done).length;
+  let h=`<h2>🎁 쇼핑리스트</h2><div class="card"><div class="pkbar"><div style="width:${total?Math.round(done/total*100):0}%"></div></div>
+    <div class="sub" style="margin-top:6px">${done} / ${total} 삼</div>
+    <div class="chips" style="margin:8px 0 0">`;
+  tripPlaces().forEach((cities,c)=>{
+    const q=[`${c} 쇼핑리스트`,...[...cities].map(n=>`${n} 쇼핑리스트`)].join(' | ');
+    h+=`<a class="btn" target="_blank" rel="noopener" href="${esc(naverQ(q))}">📝 ${esc(c)} 쇼핑리스트 블로그</a>`});
+  h+=`</div></div>
+    <div class="card pbox"><div class="g2"><input type="text" id="shtext" placeholder="살 것 (예: 마누카꿀)"><input type="text" id="shwhere" placeholder="어디서 (예: Chemist Warehouse)"></div>
+    <div class="tools" style="margin-top:0"><button class="btn pri" data-shadd>＋ 추가</button></div></div><div class="check" style="margin-top:12px">`;
+  h+=items.map((x,i)=>`<div class="ck ${x.done?'done':''}" style="flex-wrap:wrap"><input type="checkbox" data-sh="${i}" ${x.done?'checked':''}>
+      <input type="text" data-root="s" data-p="shop.${i}.text" value="${esc(x.text)}" style="flex:1 1 40%"><button class="btn del" data-shdel="${i}">✕</button>
+      <div style="flex-basis:100%;display:flex;gap:6px;align-items:center;padding-left:26px"><small>📍</small><input type="text" data-root="s" data-p="shop.${i}.where" value="${esc(x.where||'')}" placeholder="어디서 살 수 있나" style="flex:1;font-size:.85em">
+      ${x.kq?`<a class="btn" target="_blank" rel="noopener" href="${esc(naverQ(x.kq))}">📝</a>`:''}</div></div>`).join('');
+  h+=`</div>`;
+  if(!items.length)h+=`<p class="sub">살 것을 추가해 보세요.</p>`;
+  return h;
+}
+
 /* ================= 렌더링 ================= */
 function renderTabs(){
   const tb=$('#tabs'),keep=tb.scrollLeft;
   tb.innerHTML=`<button class="tab ${view==='sum'?'on':''}" data-view="sum">📋 전체</button>`+S.days.map((d,i)=>`<button class="tab ${view==='day'&&i===cur?'on':''}" data-tab="${i}">${sameDay(dayDate(d),new Date())?'<span class="tdot">●</span> ':''}${esc(d.tab)}</button>`).join('')+
-    `<button class="tab ${view==='pack'?'on':''}" data-view="pack">🧳 준비물</button><button class="tab" data-addday>＋ 날짜</button>`;
+    `<button class="tab ${view==='pack'?'on':''}" data-view="pack">🧳 준비물</button><button class="tab ${view==='shop'?'on':''}" data-view="shop">🎁 쇼핑</button><button class="tab" data-addday>＋ 날짜</button>`;
 
   tb.scrollLeft=keep;
   const on=tb.querySelector('.tab.on');
@@ -724,6 +746,7 @@ function render(){
   document.querySelector('main').style.maxWidth=view==='sum'?'none':'';
   if(view==='sum'){$('#app').innerHTML=renderSum();updTotal();return}
   if(view==='pack'){$('#app').innerHTML=renderPack();updTotal();return}
+  if(view==='shop'){$('#app').innerHTML=renderShop();updTotal();return}
   const d=S.days[cur], n=d.items.length;
   let h=`<h2>${editing?`<input type="text" data-p="title" value="${esc(d.title)}">
     <div class="g2"><input type="text" data-p="tab" value="${esc(d.tab)}" placeholder="탭 이름"><button class="btn del" data-delday>이 날짜 삭제</button></div>`:esc(d.title)}</h2>`;
@@ -764,7 +787,7 @@ function render(){
           ${chEdit}${it.when?whenTag(it):''}
           ${ctrl(i,n,`<button class="btn" data-fix="${i}">${it.fix?'🔒 시간 고정됨':'🔓 시간 고정'}</button>`+doneBtn)}`
         :`<div class="t">${esc(it.time)}${it.fix?' 🔒':''}${kindChip(it)}${wxStopChip(d,it)}${whenTag(it)}</div><div class="n">${esc(it.name)}${ch?` · <b>${esc(ch.name)}</b>`:''}</div>${ch&&ch.note?`<div class="chn">${esc(ch.note)}</div>`:''}${it.stay?`<span class="chip">⏱ ${esc(it.stay)}</span>`:''}${chView}
-          <div class="cardtools"><button class="btn" data-edit="${i}">✏️ 수정</button>${mapBtn}${it.kind==='hotel'&&!it.kq?'':blogBtns(it)}${it.kind==='market'?souvBtn(d,it):''}<button class="btn" data-addafter="${i}">＋ 다음 일정</button></div>`)
+          <div class="cardtools"><button class="btn" data-edit="${i}">✏️ 수정</button>${mapBtn}${it.kind==='hotel'&&!it.kq?'':blogBtns(it)}<button class="btn" data-addafter="${i}">＋ 다음 일정</button></div>`)
         +`</div>${memo(p,it.memo)}</div>`;
     }else{
       h+=`<div class="row ${ed?'edit':''}" data-ri="${i}"><div class="card leg"><div class="lt">`+(ed
@@ -873,6 +896,11 @@ document.addEventListener('click',e=>{
     S.pack.push({cat:($('#pkcat').value||'').trim()||'기타',text,done:false});
   }
   else if(D.pkdel){S.pack.splice(+D.pkdel,1)}
+  else if('shadd' in D){
+    const text=($('#shtext').value||'').trim();if(!text){toast('살 것을 입력하세요');return}
+    S.shop.push({text,where:($('#shwhere').value||'').trim(),done:false});
+  }
+  else if(D.shdel){S.shop.splice(+D.shdel,1)}
   else if('pkclear' in D){if(!confirm('모든 체크를 해제할까요?'))return;S.pack.forEach(x=>x.done=false)}
   else if('pkfilter' in D){ch=false;pkTodo=!pkTodo}
   else if(b.id==='editBtn'){ch=false;editing=!editing;editIdx=null}
@@ -901,9 +929,11 @@ document.addEventListener('change',e=>{
   const t=e.target;
   if(t.dataset.ck!==undefined){S.days[cur].check[+t.dataset.ck].done=t.checked;save();render()}
   else if(t.dataset.pk!==undefined){S.pack[+t.dataset.pk].done=t.checked;save();render()}
+  else if(t.dataset.sh!==undefined){S.shop[+t.dataset.sh].done=t.checked;save();render()}
   else if(t.hasAttribute&&t.hasAttribute('data-rr')){render()}
 });
-document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='pktext'){const b=document.querySelector('[data-pkadd]');if(b)b.click()}});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='pktext'){const b=document.querySelector('[data-pkadd]');if(b)b.click()}
+  if(e.key==='Enter'&&(e.target.id==='shtext'||e.target.id==='shwhere')){const b=document.querySelector('[data-shadd]');if(b)b.click()}});
 $('#copyBtn').onclick=()=>{$('#json').select();try{navigator.clipboard.writeText($('#json').value)}catch(e){document.execCommand('copy')}};
 $('#loadBtn').onclick=()=>{
   try{const o=JSON.parse($('#json').value);if(!o.days||!o.days.length)throw 0;S=migrate(o);cur=0;save();render();$('#dlg').close()}
