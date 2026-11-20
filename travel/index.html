@@ -266,10 +266,10 @@ const blogBtns=it=>{let {en,ko}=blogQs(it);
   /* 네이버 OR 검색: 영어 이름 | 한글 이름 */
   const q=en&&ko&&ko!==en?`${en} | ${ko}`:(ko||en);
   return `<a class="btn" target="_blank" rel="noopener" href="${esc(naverQ(q))}">📝 네이버 블로그</a>`};
-/* 기념품: 시장·쇼핑 칸에 '나라 쇼핑리스트 | 도시 쇼핑리스트 | 한국에 없는 나라' 블로그 검색 */
+/* 기념품: 시장·쇼핑 칸에 '나라 쇼핑리스트 | 도시 쇼핑리스트' 블로그 검색 */
 const souvBtn=(d,it)=>{const w=(d.wx||[])[it.wr>=0?it.wr:0]||(d.wx||[])[0];if(!w)return'';
   const c=w.lon>=160?'뉴질랜드':'호주',city=(w.n||'').trim();
-  const q=[`${c} 쇼핑리스트`,city&&city!==c?`${city} 쇼핑리스트`:'',`한국에 없는 ${c}`].filter(Boolean).join(' | ');
+  const q=[`${c} 쇼핑리스트`,city&&city!==c?`${city} 쇼핑리스트`:''].filter(Boolean).join(' | ');
   return `<a class="btn" target="_blank" rel="noopener" href="${esc(naverQ(q))}">🎁 쇼핑리스트</a>`};
 const mapsURL=(it,d,k)=>mapsQ(d?qStr(sLoc(d,k)):(it.ll?it.ll.lat+','+it.ll.lng:it.loc));
 function kindChip(it){const k=KMAP[it.kind||'etc']||KMAP.etc;return `<span class="kind" style="color:${k.c};border-color:${k.c}55;background:${k.c}14">${k.l}</span>`}
