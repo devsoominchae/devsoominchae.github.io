@@ -333,6 +333,24 @@ function ends(d,i){
   if(!from||!to||ptStr(from)===ptStr(to))return null; /* 같은 곳이면 지도 없음 (세계지도 방지) */
   return {from,to};
 }
+/* 지도를 못 띄울 때 이유 */
+function noMapWhy(d,i){
+  let a=null,b=null;
+  for(let k=i-1;k>=0;k--)if(routable(d,d.items[k])){a=k;break}
+  for(let k=i+1;k<d.items.length;k++)if(routable(d,d.items[k])){b=k;break}
+  if(a!==null&&b!==null){const x=sLoc(d,a),y=sLoc(d,b);if(x&&y&&ptStr(x)===ptStr(y))return '📍 앞·뒤가 같은 장소예요 · 이동 없이 바로 이어져요'}
+  return "앞·뒤 장소의 '지도 검색어'를 넣으면 길 안내 지도가 나와요 (✏️ 이동 수정 → 앞뒤 장소의 지도 검색어)";
+}
+/* 가까운 거리 안내: 좌표가 있으면 직선거리, 없으면 선택한 이동의 소요 시간으로 */
+function nearNote(e,leg){
+  const A=e.from.ll,B=e.to.ll;
+  if(A&&B){const R=6371e3,r=Math.PI/180,dl=(B.lat-A.lat)*r,dg=(B.lng-A.lng)*r;
+    const m=2*R*Math.asin(Math.sqrt(Math.sin(dl/2)**2+Math.cos(A.lat*r)*Math.cos(B.lat*r)*Math.sin(dg/2)**2));
+    if(m<400)return `🚶 가까워요 · 약 ${Math.round(m/10)*10}m (걸어서 ${Math.max(1,Math.round(m/80))}분)`}
+  const o=selOpt(leg),t=String((o&&o.dur)||'');
+  if(o&&(o.mode||guessMode(o.name||''))==='walking'&&/바로/.test(t)||o&&(o.mode||guessMode(o.name||''))==='walking'&&(!/시간/.test(t)&&+((/(\d+)\s*분/.exec(t)||[])[1]||99)<=5))return '🚶 가까워요 · '+t;
+  return '';
+}
 /* 이동 출발 시각: 그 날짜(탭의 M/D) + 이동의 출발 시간 → 대중교통 길찾기를 '지금'이 아니라 실제 출발 시각 기준으로 */
 function legWhen(d,leg){
   const t=/(\d{1,2}):(\d{2})/.exec((leg&&leg.depart)||''),md=/(\d{1,2})\/(\d{1,2})/.exec(d.tab||d.title||'');
@@ -358,10 +376,12 @@ function makeEntry(){
   return ent;
 }
 function renderCap(ent){
-  ent.cap.innerHTML=(ent.info?esc(ent.info)+' · ':'')+`<a href="${esc(ent.link)}" target="_blank" rel="noopener">구글 지도 앱에서 열기 ↗</a>`;
+  const pre=[ent.note,ent.info].filter(Boolean).map(esc).join(' · ');
+  ent.cap.innerHTML=(pre?pre+'<br>':'')+`<a href="${esc(ent.link)}" target="_blank" rel="noopener">구글 지도 앱에서 열기 ↗</a>`+
+    `<br><small class="sub">지도에 위치가 안 잡히거나 넓은 지도만 보이면 구글이 장소를 못 찾은 거예요 → ✏️ 앞뒤 장소의 지도 검색어(주소)를 고쳐 주세요</small>`;
 }
-function showEntry(ent,e,mode,w){
-  ent.e=e;ent.mode=mode;ent.w=w||null;ent.link=dirLink(e,mode,ent.w);renderCap(ent);
+function showEntry(ent,e,mode,w,note){
+  ent.note=note||'';ent.e=e;ent.mode=mode;ent.w=w||null;ent.link=dirLink(e,mode,ent.w);renderCap(ent);
   if(ent.vis)refreshEntry(ent);
 }
 function fallback(ent,msg){
@@ -382,7 +402,7 @@ function attachMaps(){
     let ent=mapCache.get(key);
     if(!ent){ent=makeEntry();mapCache.set(key,ent)}
     slot.appendChild(ent.el);
-    const e=ends(d,i);if(e)showEntry(ent,e,curMode(d.items[i]),legWhen(d,d.items[i]));
+    const e=ends(d,i);if(e)showEntry(ent,e,curMode(d.items[i]),legWhen(d,d.items[i]),nearNote(e,d.items[i]));
   });
 }
 
@@ -826,7 +846,7 @@ function render(){
       if(ed)h+=memo(p,it.memo);
       else{
         const e=ends(d,i);
-        h+=`<div class="side">${e?`<div data-slot data-i="${i}" data-k="${esc([cur,i,ptStr(e.from),ptStr(e.to)].join('|'))}"></div>`:`<div class="mapbox empty">앞·뒤 장소의 '지도 검색어'를 넣으면 길 안내 지도가 나와요 (✏️ 이동 수정 → 앞뒤 장소의 지도 검색어)</div>`}${memo(p,it.memo)}</div>`;
+        h+=`<div class="side">${e?`<div data-slot data-i="${i}" data-k="${esc([cur,i,ptStr(e.from),ptStr(e.to)].join('|'))}"></div>`:`<div class="mapbox empty">${esc(noMapWhy(d,i))}</div>`}${memo(p,it.memo)}</div>`;
       }
       h+=`</div>`;
     }
