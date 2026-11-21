@@ -868,7 +868,8 @@ function render(){
     <input type="checkbox" data-ck="${i}" ${c.done?'checked':''}>`+(editing?`<input type="text" data-p="check.${i}.text" value="${esc(c.text)}"><button class="btn del" data-delck="${i}">✕</button>`:`<span>${esc(c.text)}</span>`)+`</div>`).join('')
     +(editing?`<div class="ck"><button class="btn" data-addck>＋ 항목 추가</button></div>`:'')+`</div>`;
   if(d.src)h+=`<p class="src">${esc(d.src)}</p>`;
-  if(!editing)h+=jumpNav(d);
+  /* 오른쪽 바로가기: 일단 꺼 둠 (다시 켜려면 아래 줄 주석 해제) */
+  /* if(!editing)h+=jumpNav(d); */
   $('#app').innerHTML=h;
   updTotal();
   if(!editing){attachMaps();applyNow()}
