@@ -117,6 +117,13 @@ dialog input[type=text]{border:1px solid var(--line);border-radius:8px;padding:8
 .pin{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;font-size:18px}
 .sub{color:var(--sub);font-size:13px}
 .pcard textarea{border:1px solid var(--memo-line);background:var(--memo);border-radius:8px;padding:6px 8px;margin-top:8px;min-height:44px}
+.jump{position:fixed;right:4px;top:50%;transform:translateY(-50%);z-index:30;display:flex;flex-direction:column;gap:1px;max-height:70vh;overflow-y:auto;background:rgba(255,255,255,.88);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);border:1px solid #d7dedb;border-radius:10px;padding:3px;font-size:11px;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.jump button{border:0;background:none;padding:3px 5px;border-radius:6px;text-align:left;white-space:nowrap;color:#2b3734;font:inherit;cursor:pointer;line-height:1.25}
+.jump .nm{display:none;max-width:7.5em;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+.jump.open .nm{display:inline-block;margin-left:4px}
+.jump button.now{background:#fde68a}
+.jump .jt{text-align:center;font-size:13px;color:#667}
+.row{scroll-margin-top:120px}
 .toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1c2523;color:#fff;padding:9px 16px;border-radius:999px;font-size:14px;z-index:50;max-width:90%}
 gmp-place-autocomplete{width:100%}
 .pkbar{height:10px;border-radius:99px;background:var(--line);overflow:hidden}
@@ -856,11 +863,24 @@ function render(){
     <input type="checkbox" data-ck="${i}" ${c.done?'checked':''}>`+(editing?`<input type="text" data-p="check.${i}.text" value="${esc(c.text)}"><button class="btn del" data-delck="${i}">✕</button>`:`<span>${esc(c.text)}</span>`)+`</div>`).join('')
     +(editing?`<div class="ck"><button class="btn" data-addck>＋ 항목 추가</button></div>`:'')+`</div>`;
   if(d.src)h+=`<p class="src">${esc(d.src)}</p>`;
+  if(!editing)h+=jumpNav(d);
   $('#app').innerHTML=h;
   updTotal();
   if(!editing){attachMaps();applyNow()}
 }
 
+/* 화면 오른쪽 바로가기: 장소별 시간(펼치면 이름) · 누르면 그 카드로 이동 */
+let jumpOpen=false;try{jumpOpen=localStorage.getItem('jumpOpen')==='1'}catch(e){}
+function jumpNav(d){
+  const today=sameDay(dayDate(d),new Date()),nowM=new Date().getHours()*60+new Date().getMinutes();
+  const list=d.items.map((it,i)=>({it,i})).filter(o=>routable(d,o.it)&&(!kindF||(o.it.kind||'etc')===kindF));
+  if(list.length<2)return'';
+  let cur=-1;
+  if(today){for(const o of list){const t=tmins(o.it.time);if(t.length&&t[0]<=nowM)cur=o.i}}
+  return `<nav class="jump ${jumpOpen?'open':''}" aria-label="일정 바로가기"><button class="jt" data-jumpt aria-label="바로가기 펼치기">${jumpOpen?'›':'‹'}</button>`+
+    list.map(o=>{const t=(String(o.it.time||'').match(/\d{1,2}:\d{2}/)||['·'])[0];
+      return `<button data-jump="${o.i}" class="${o.i===cur?'now':''}">${esc(t)}<span class="nm">${esc(shortN(o.it))}</span></button>`}).join('')+`</nav>`;
+}
 function setPath(obj,path,val){
   const k=path.split('.');let o=obj;
   for(let i=0;i<k.length-1;i++)o=o[k[i]];
@@ -949,6 +969,8 @@ document.addEventListener('click',e=>{
   else if(D.fix!==undefined){const x=d.items[+D.fix];if(x.fix)delete x.fix;else x.fix=true}
   else if('cascade' in D){if(!confirm('이 날 일정 시간을 앞에서부터 다시 이어붙일까요? (🔒 시간 고정·비행 일정은 그대로)'))return;cascade(d,0,true);toast('시간을 자동으로 맞췄어요')}
   else if(b.id==='menuBtn'||b.id==='syncBtn'){ch=false;$('#tok').value=token;$('#json').value=JSON.stringify(S,null,1);$('#dlg').showModal();return}
+  else if(D.jump!==undefined){const r=document.querySelector(`[data-ri="${D.jump}"]`);if(r)r.scrollIntoView({behavior:'smooth',block:'start'});return}
+  else if('jumpt' in D){jumpOpen=!jumpOpen;try{localStorage.setItem('jumpOpen',jumpOpen?'1':'0')}catch(e){}const n=document.querySelector('.jump');if(n){n.classList.toggle('open',jumpOpen);b.textContent=jumpOpen?'›':'‹'}return}
   else return;
   if(ch)save();
   render();
