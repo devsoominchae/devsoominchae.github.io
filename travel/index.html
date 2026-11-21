@@ -330,7 +330,8 @@ function ends(d,i){
   const o=selOpt(leg);
   const from=leg.from?{q:leg.from}:(a!==null?sLoc(d,a):null);
   const to=o&&o.place?{q:o.place}:leg.to?{q:leg.to}:(b!==null?sLoc(d,b):null);
-  return from&&to?{from,to}:null;
+  if(!from||!to||ptStr(from)===ptStr(to))return null; /* 같은 곳이면 지도 없음 (세계지도 방지) */
+  return {from,to};
 }
 /* 이동 출발 시각: 그 날짜(탭의 M/D) + 이동의 출발 시간 → 대중교통 길찾기를 '지금'이 아니라 실제 출발 시각 기준으로 */
 function legWhen(d,leg){
@@ -455,12 +456,19 @@ function memo(p,v){return `<div class="card memo"><label>📝 메모</label><tex
 const defOpts=()=>[['도보','walking'],['대중교통','transit'],['우버','driving']].map(([name,mode])=>({name,route:'',dur:'',min:0,max:0,note:'',mode}));
 const newLeg=()=>({type:'leg',title:'새 이동',depart:'',memo:'',sel:0,options:defOpts()});
 function resetLeg(l){l.options=defOpts();l.sel=0;delete l.from;delete l.to}
+/* 같은 장소인지 (주소 글자 비교, 좌표 있으면 좌표) — 같은 곳끼리는 이동 칸을 만들지 않음 */
+const normLoc=it=>String((it&&it.loc)||'').toLowerCase().replace(/[^a-z0-9가-힣]/g,'');
+function sameLoc(a,b){
+  if(!a||!b||a.type!=='stop'||b.type!=='stop')return false;
+  if(a.ll&&b.ll)return Math.abs(a.ll.lat-b.ll.lat)<2e-4&&Math.abs(a.ll.lng-b.ll.lng)<2e-4;
+  const x=normLoc(a),y=normLoc(b);return !!x&&x===y;
+}
 function fixAround(d,k){
   const pv=d.items[k-1];
-  if(pv&&pv.type==='stop'){d.items.splice(k,0,newLeg());k++}
+  if(pv&&pv.type==='stop'&&!sameLoc(pv,d.items[k])){d.items.splice(k,0,newLeg());k++}
   else if(pv&&pv.type==='leg')resetLeg(pv);
   const nx=d.items[k+1];
-  if(nx&&nx.type==='stop')d.items.splice(k+1,0,newLeg());
+  if(nx&&nx.type==='stop'&&!sameLoc(d.items[k],nx))d.items.splice(k+1,0,newLeg());
   else if(nx&&nx.type==='leg')resetLeg(nx);
   return k;
 }
