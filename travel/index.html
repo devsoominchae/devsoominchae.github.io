@@ -252,6 +252,19 @@ const selOpt=l=>l&&l.type==='leg'?(l.options[l.sel]||l.options[0]):null;
 const chosen=it=>it&&it.choices&&it.choices.length?(it.choices[it.csel||0]||it.choices[0]):null;
 function choiceKey(d,cid){return (chosen(d.items.find(x=>x.cid===cid))||{}).key}
 const hidden=(d,it)=>!!(it.when&&!(it.when.k||[]).includes(choiceKey(d,it.when.c)));
+/* 이동 선택지도 '식당 등 선택지'에 따라 보였다/숨었다: option.when={c:cid,k:[keys]} */
+const optHidden=(d,o)=>!!(o&&o.when&&!(o.when.k||[]).includes(choiceKey(d,o.when.c)));
+/* 고른 선택지에 맞게 이동 선택 자동 조정: 맞는(when 일치) 첫 이동 > 아무 조건 없는 첫 이동 */
+function fixLegSel(d,cid){
+  d.items.forEach(l=>{if(l.type!=='leg'||!l.options.length)return;
+    const cur=l.options[l.sel];
+    const linked=l.options.some(o=>o.when&&(!cid||o.when.c===cid));if(!linked)return;
+    if(cid||!cur||optHidden(d,cur)){
+      let k=l.options.findIndex(o=>o.when&&!optHidden(d,o));
+      if(k<0)k=l.options.findIndex(o=>!optHidden(d,o));
+      if(k>=0)l.sel=k;
+    }});
+}
 const away=it=>!!(chosen(it)||{}).away;
 const sName=it=>{const c=chosen(it);return c?`${it.name} · ${c.name}`:it.name};
 const routable=(d,it)=>it.type==='stop'&&!hidden(d,it)&&!away(it);
@@ -777,6 +790,7 @@ function planBar(d){
 }
 function render(){
   document.body.classList.toggle('locked',locked);if(locked)return;
+  if(view==='day'&&S.days[cur])fixLegSel(S.days[cur]);
   document.body.classList.toggle('edit',editing&&view==='day');
   $('#editBtn').style.display=view==='day'?'':'none';
   if(view!=='day')editIdx=null;
@@ -836,6 +850,7 @@ function render(){
       if(ed)h+=`<div class="g2"><input type="text" data-p="${p}.from" value="${esc(it.from||'')}" placeholder="출발 지도 검색어 (비우면 앞 장소)"><input type="text" data-p="${p}.to" value="${esc(it.to||'')}" placeholder="도착 지도 검색어 (비우면 뒤 장소)"></div>`;
       it.options.forEach((o,j)=>{
         const q=`${p}.options.${j}`;
+        if(!ed&&optHidden(d,o))return;
         if(ed){
           h+=`<div class="opt ${j===it.sel?'sel':''}" style="cursor:default">
             <div class="g2"><input type="text" data-p="${q}.name" value="${esc(o.name)}" placeholder="이동수단 이름">
@@ -920,7 +935,7 @@ document.addEventListener('click',e=>{
   else if(D.sel){const[i,j]=pair(D.sel);d.items[i].sel=j;cascade(d,i)}
   else if(D.wxr!==undefined){loadWx(true);return}
   else if(D.gonow!==undefined){const r=document.querySelector(`#app .row[data-ri="${D.gonow}"]`);if(r)r.scrollIntoView({behavior:'smooth',block:'center'});return}
-  else if(D.csel){const[i,j]=pair(D.csel);d.items[i].csel=j}
+  else if(D.csel){const[i,j]=pair(D.csel);d.items[i].csel=j;if(d.items[i].cid)fixLegSel(d,d.items[i].cid)}
   else if(D.addch){const it=d.items[+D.addch];(it.choices=it.choices||[]).push({key:'c'+Date.now(),name:'새 후보',loc:'',note:''});if(it.csel===undefined)it.csel=0;if(!editing)editIdx=+D.addch}
   else if(D.delch){const[i,j]=pair(D.delch);const it=d.items[i];it.choices.splice(j,1);it.csel=Math.min(it.csel||0,Math.max(0,it.choices.length-1));if(!it.choices.length)delete it.choices}
   else if(D.mv){const[i,s]=pair(D.mv);const k=i+s;const a=d.items[i],b=d.items[k];[d.items[i],d.items[k]]=[b,a];if(a.type==='stop'&&b.type==='stop'){swapSlots(d,a,b,Math.min(i,k),Math.max(i,k));cascade(d,Math.max(i,k))}if(editIdx===i)editIdx=k;else if(editIdx===k)editIdx=i}
