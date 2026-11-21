@@ -68,6 +68,8 @@ h2{font-size:20px;margin:4px 0 12px}
 .chs{margin-top:10px}.chh{font-size:12px;color:var(--sub);margin-bottom:5px}.chn{font-size:13px;color:var(--sub);margin-top:2px}
 .whentag{display:inline-block;font-size:11px;font-weight:600;color:var(--sub);border:1px dashed var(--line);border-radius:6px;padding:0 6px;margin-left:6px;vertical-align:1px}
 .opt.hasmap{padding-right:78px}
+.optblog{position:absolute;right:10px;bottom:42px;font-size:12.5px;font-weight:700;color:#03a94d;background:#e7f8ee;border-radius:999px;padding:2px 9px;text-decoration:none}
+.opt.hasblog{padding-right:78px;min-height:66px}
 .optmap{position:absolute;right:10px;bottom:16px;font-size:12.5px;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:2px 9px;text-decoration:none}
 .radio{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);flex:none}
 .opt.sel .radio{border-color:var(--accent);background:radial-gradient(var(--accent) 45%,transparent 50%)}
@@ -266,6 +268,9 @@ const blogQs=it=>{const ch=chosen(it);const en=((ch&&ch.name)||it.eq||(it.loc||'
 const MEAL_RE=/^(아침|점심|저녁|브런치|야식)(\s*\(.*\))?$|자유\s*(식사|시간)/;
 const isMealSlot=it=>it.kind==='restaurant'&&!chosen(it)&&MEAL_RE.test((it.name||'').trim());
 const matjip=t=>{t=(t||'').replace(/\b(restaurants?|food|eats?)\b/gi,'').replace(/맛집/g,'').replace(/\s+/g,' ').trim();return t?t+' 맛집':''};
+/* 선택지(식당 후보 등)마다 네이버 블로그: 영어 이름 | 한글 이름 */
+const choiceBlogURL=c=>{const en=(c.eq||c.name||'').replace(/\s*\(.*?\)\s*/g,' ').trim(),ko=(c.kq||'').trim();
+  const q=en&&ko&&ko!==en?`${en} | ${ko}`:(ko||en);return q?naverQ(q):''};
 const blogBtns=it=>{let {en,ko}=blogQs(it);
   if(isMealSlot(it)){const area=(/\((.+?)\)/.exec(it.name)||[])[1];
     en=matjip(it.eq||(it.loc||'').split(',')[0]||area);ko=matjip(it.kq||'')}
@@ -811,7 +816,7 @@ function render(){
       const hasLoc=sLoc(d,i);
       const ch=chosen(it);
       const mapBtn=hasLoc?`<a class="btn" target="_blank" rel="noopener" href="${esc(mapsURL(it,d,i))}">🗺 구글 지도${ch?' ('+esc(ch.name)+')':''}</a>`:'';
-      const chView=ch?`<div class="chs"><div class="chh">선택지 · 누르면 바뀌어요</div>`+it.choices.map((c,j)=>`<div class="optw"><button class="opt ${c===ch?'sel':''} ${c.loc?'hasmap':''}" data-csel="${i},${j}"><div class="h"><span class="radio"></span><span class="nm">${esc(c.name)}</span></div>${c.note?`<div class="nt">${esc(c.note)}</div>`:''}</button>${c.loc?`<a class="optmap" target="_blank" rel="noopener" href="${esc(mapsQ(c.loc))}">🗺 지도</a>`:''}</div>`).join('')+`</div>`:'';
+      const chView=ch?`<div class="chs"><div class="chh">선택지 · 누르면 바뀌어요</div>`+it.choices.map((c,j)=>`<div class="optw"><button class="opt ${c===ch?'sel':''} ${c.loc?'hasmap':''} ${choiceBlogURL(c)?'hasblog':''}" data-csel="${i},${j}"><div class="h"><span class="radio"></span><span class="nm">${esc(c.name)}</span></div>${c.note?`<div class="nt">${esc(c.note)}</div>`:''}</button>${choiceBlogURL(c)?`<a class="optblog" target="_blank" rel="noopener" href="${esc(choiceBlogURL(c))}">📝 블로그</a>`:''}${c.loc?`<a class="optmap" target="_blank" rel="noopener" href="${esc(mapsQ(c.loc))}">🗺 지도</a>`:''}</div>`).join('')+`</div>`:'';
       const chEdit=`<div class="chs"><div class="chh">선택지 (식당 후보 등)</div>`+(it.choices||[]).map((c,j)=>`<div class="opt" style="cursor:default"><div class="g2"><input type="text" data-p="${p}.choices.${j}.name" value="${esc(c.name)}" placeholder="후보 이름"><input type="text" data-p="${p}.choices.${j}.loc" value="${esc(c.loc||'')}" placeholder="지도 검색어"></div><input type="text" data-p="${p}.choices.${j}.note" value="${esc(c.note||'')}" placeholder="메모 (평점·영업시간 등)"><div class="tools"><button class="btn" data-csel="${i},${j}">${c===ch?'★ 선택됨':'☆ 이걸로 선택'}</button><button class="btn del" data-delch="${i},${j}">이 후보 삭제</button></div></div>`).join('')+`<div class="tools"><button class="btn" data-addch="${i}">＋ 후보 추가</button></div></div>`;
       h+=`<div class="row ${ed?'edit':''}" data-ri="${i}"><div class="card stop" style="border-left-color:${(KMAP[it.kind||'etc']||KMAP.etc).c}">`+(ed
         ?`<div class="g2"><input type="text" data-p="${p}.time" value="${esc(it.time)}" placeholder="시간"><input type="text" data-p="${p}.stay" value="${esc(it.stay)}" placeholder="머무는 시간"></div>
